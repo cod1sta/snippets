@@ -1,0 +1,56 @@
+*.log
+
+*.py[codt]
+
+# C extensions
+*.so
+
+# Packages
+*.egg
+*.egg-info
+dist
+build
+eggs
+parts
+bin
+var
+sdist
+develop-eggs
+.installed.cfg
+lib
+lib64
+
+# Translations
+*.mo
+
+# Mr Developer
+.mr.developer.cfg
+.project
+.pydevproject
+
+# Virtualenvs
+env
+env*
+venv
+
+*.ipr
+*.iml
+*.iws
+
+.DS_Store
+
+# Direnv
+.envrc
+# Pipenv
+.env
+
+# Editor Conf
+*.vscode
+
+# mypy
+*.mypy_cache
+
+# Pyenv
+.python-version
+
+
