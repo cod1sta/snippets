@@ -57,7 +57,7 @@ class Command(BaseCommand):
         cur.execute("DROP DATABASE {};".format(conn_kwargs["dbname"]))
 
     def _create_or_recreate_db(self, database):
-        """create the database if it does not exist, and drop it first if database already exists"""
+        """creates or recreates the database"""
         conn_kwargs = DATABASE_CONNECTION_DETAILS[database]
         try:
             psycopg2.connect(**conn_kwargs)
