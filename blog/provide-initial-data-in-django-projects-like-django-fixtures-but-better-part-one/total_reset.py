@@ -20,6 +20,7 @@ class Command(BaseCommand):
     requires_system_checks = False
 
     def _terminate_db_connections(self, database):
+        """Terminates the database connections to be able to drop the database"""
         conn_kwargs = DATABASE_CONNECTION_DETAILS[database]
         postgres_db_conn_kwargs = conn_kwargs.copy()
         postgres_db_conn_kwargs["dbname"] = "postgres"
@@ -34,6 +35,7 @@ class Command(BaseCommand):
         )
 
     def _create_db(self, database):
+        """Sets up the database"""
         conn_kwargs = DATABASE_CONNECTION_DETAILS[database]
         postgres_db_conn_kwargs = conn_kwargs.copy()
         postgres_db_conn_kwargs["dbname"] = "postgres"
@@ -44,6 +46,7 @@ class Command(BaseCommand):
         cur.execute("CREATE DATABASE {};".format(conn_kwargs["dbname"]))
 
     def _drop_db(self, database):
+        """Drops the database"""
         conn_kwargs = DATABASE_CONNECTION_DETAILS[database]
         postgres_db_conn_kwargs = conn_kwargs.copy()
         postgres_db_conn_kwargs["dbname"] = "postgres"
@@ -54,6 +57,7 @@ class Command(BaseCommand):
         cur.execute("DROP DATABASE {};".format(conn_kwargs["dbname"]))
 
     def _create_or_recreate_db(self, database):
+        """create the database if it does not exist, and drop it first if database already exists"""
         conn_kwargs = DATABASE_CONNECTION_DETAILS[database]
         try:
             psycopg2.connect(**conn_kwargs)
@@ -65,6 +69,7 @@ class Command(BaseCommand):
             self._create_db(database)
 
     def handle(self, *args, **options):
+        """entry point"""
         verbosity = options["verbosity"]
         if not settings.DEBUG:
             # YOU SHOULD NEVER TRUST THIS COMMAND FOR PRODUCTION USAGE.
