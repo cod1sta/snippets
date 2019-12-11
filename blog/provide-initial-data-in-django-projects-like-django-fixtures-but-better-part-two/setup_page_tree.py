@@ -70,17 +70,16 @@ class Command(BaseCommand):
         )
         # Create the base language redirection page which is responsible to redirect
         # the user to the language specific home pages
-        language_redirection_page = LanguageRedirectionPage.objects.create(
+        root = Page.get_first_root_node()
+        language_redirection_page = LanguageRedirectionPage(
             title="codista.com",
             draft_title="codista.com",
             slug="root",
             content_type=language_redirection_page_content_type,
             show_in_menus=True,
-            path="00010001",
-            depth=2,
-            numchild=0,
-            url_path="/root/",
         )
+        root.add_child(instance=language_redirection_page)
+
         # Create a site with the new LanguageRedirectionPage set as the root
         Site.objects.create(
             hostname="localhost",
