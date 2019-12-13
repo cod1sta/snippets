@@ -1,27 +1,29 @@
 import json
-import logging
 from pathlib import Path
 
-import faker
-from django.apps import apps
 from django.conf import settings
-from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
 from django.core.files import File
 from django.core.management.base import BaseCommand
-from faker.providers import date_time, lorem
-from wagtail.core.models import Page
+from wagtail.core.models import Page, Site
 from wagtail.images.models import Image
+from wagtailmenus.conf import settings as wagtailmenu_settings
 
-User = get_user_model()
+from codista.cms.models import (
+    ContactPage,
+    DefaultPage,
+    HomePage,
+    LanguageRedirectionPage,
+    PrivacyPolicyPage,
+    ProjectIndexPage,
+    ProjectPage,
+    ServiceOverviewPage,
+    TeamMemberIndexPage,
+    TeamMemberPage,
+)
 
 APP_DIR = Path(__file__).resolve().parent.parent.parent
 FIXTURES_DIR = APP_DIR.joinpath("fixtures")
-
-logger = logging.getLogger("setup_page_tree")
-
-german_fake = faker.Faker("de_DE")
-german_fake.add_provider(lorem)
-german_fake.add_provider(date_time)
 
 
 class Command(BaseCommand):
@@ -46,10 +48,10 @@ class Command(BaseCommand):
         self._create_main_menu()
         self._create_flat_menus()
 
-    def _set_image(self, obj, attr_name, folder_path, img_path):
-        """helper to set images for objects"""
+    def _set_image(self, instance, attr_name, folder_path, img_path):
+        """Helper to set images on models."""
         img_path = folder_path.joinpath(img_path)
-        # create and set the file if it does not yet exist
+        # Create and set the file if it does not yet exist.
         qs = Image.objects.filter(title=img_path.name)
         if not qs.exists():
             with open(img_path, "rb") as f:
@@ -60,24 +62,20 @@ class Command(BaseCommand):
                 image.save()
         else:
             image = qs[0]
-        setattr(obj, attr_name, image)
-        obj.save()
+        setattr(instance, attr_name, image)
+        instance.save()
 
     def _setup_language_redirection(self):
         """First things first, tear down the dummy root page.
 
-        and setup our language_redirection page
+        and setup our LanguageRedirection page.
         """
-        ContentType = apps.get_model("contenttypes.ContentType")
-        Page = apps.get_model("wagtailcore.Page")
-        Site = apps.get_model("wagtailcore.Site")
-        LanguageRedirectionPage = apps.get_model("cms.LanguageRedirectionPage")
         # Delete the default homepage created by wagtail migrations If migration is run
         # multiple times, it may have already been deleted
         Page.objects.filter(id=2).delete()
         # Get content type for LanguageRedirectionPage model
-        language_redirection_page_content_type = ContentType.objects.get(
-            model="languageredirectionpage", app_label="cms"
+        language_redirection_page_content_type = ContentType.objects.get_for_model(
+            LanguageRedirectionPage
         )
         # Create the base language redirection page which is responsible to redirect
         # the user to the language specific home pages
@@ -87,10 +85,11 @@ class Command(BaseCommand):
             draft_title="codista.com",
             slug="root",
             content_type=language_redirection_page_content_type,
-            show_in_menus=True
+            show_in_menus=True,
         )
         root.add_child(instance=language_redirection_page)
         # Create a site with the new LanguageRedirectionPage set as the root
+        # Note: this is wagtail's Site model, not django's.
         Site.objects.create(
             hostname="localhost",
             root_page=language_redirection_page,
@@ -100,13 +99,8 @@ class Command(BaseCommand):
 
     def _setup_home(self):
         """Creates the language specific home pages."""
-        LanguageRedirectionPage = apps.get_model("cms.LanguageRedirectionPage")
         parent_page = LanguageRedirectionPage.objects.first()
-        ContentType = apps.get_model("contenttypes.ContentType")
-        HomePage = apps.get_model("cms.HomePage")
-        homepage_content_type = ContentType.objects.get(
-            model="homepage", app_label="cms"
-        )
+        homepage_content_type = ContentType.objects.get_for_model(HomePage)
         # For each supported language, create a new homepage
         for language_code, label in settings.LANGUAGES:
             if language_code == "de":
@@ -145,19 +139,8 @@ class Command(BaseCommand):
             parent_page.add_child(instance=homepage)
 
     def _setup_default_pages(self):
-        # Get models
-        ContentType = apps.get_model("contenttypes.ContentType")
-
-        HomePage = apps.get_model("cms.HomePage")
-        DefaultPage = apps.get_model("cms.DefaultPage")
-        PrivacyPolicyPage = apps.get_model("cms.PrivacyPolicyPage")
-        defaultpage_content_type, __ = ContentType.objects.get_or_create(
-            model="defaultpage", app_label="cms"
-        )
-        privacypolicypage_content_type, __ = ContentType.objects.get_or_create(
-            model="privacypolicypage", app_label="cms"
-        )
-
+        defaultpage_content_type, __ = ContentType.objects.get_for_model(DefaultPage)
+        privacypolicypage_content_type, __ = ContentType.objects.get_for_model(PrivacyPolicyPage)
         home_page_de = HomePage.objects.get(language="de")
         home_page_en = HomePage.objects.get(language="en")
 
@@ -337,12 +320,7 @@ class Command(BaseCommand):
 
     def _setup_contact_page(self):
         """Creates the contact page."""
-        HomePage = apps.get_model("cms.HomePage")
-        ContactPage = apps.get_model("cms.ContactPage")
-        ContentType = apps.get_model("contenttypes.ContentType")
-        contact_page_content_type = ContentType.objects.get(
-            model="contactpage", app_label="cms"
-        )
+        contact_page_content_type = ContentType.objects.get_for_model(ContactPage)
         home_page_de = HomePage.objects.get(language="de")
         contact_page_de = ContactPage(
             title="Kontakt",
@@ -376,12 +354,7 @@ class Command(BaseCommand):
 
     def _setup_service_overview_page(self):
         """Creates the service overview page."""
-        HomePage = apps.get_model("cms.HomePage")
-        ServiceOverviewPage = apps.get_model("cms.ServiceOverviewPage")
-        ContentType = apps.get_model("contenttypes.ContentType")
-        serviceoverview_content_type = ContentType.objects.get(
-            model="serviceoverviewpage", app_label="cms"
-        )
+        serviceoverview_content_type = ContentType.objects.get_for_model(ServiceOverviewPage)
         home_page_de = HomePage.objects.get(language="de")
         services_column_one = "Wir setzen Ihre Idee und Vision in die Realität um. Wir unterstützen Ihr Team Schritt für Schritt bei der Umsetzung Ihrer Idee."
         services_column_two = "Wir hinterfragen und beraten. Durch unsere Erfahrung können wir Sie dabei unterstützen, die Fehler, die Ihre Konkurrenz machen wird, zu vermeiden."
@@ -433,12 +406,7 @@ class Command(BaseCommand):
 
     def _setup_project_index(self):
         """Creates the language specific project index pages."""
-        HomePage = apps.get_model("cms.HomePage")
-        ProjectIndexPage = apps.get_model("cms.ProjectIndexPage")
-        ContentType = apps.get_model("contenttypes.ContentType")
-        project_index_page_content_type = ContentType.objects.get(
-            model="projectindexpage", app_label="cms"
-        )
+        project_index_page_content_type = ContentType.objects.get_for_model(ProjectIndexPage)
         home_page_de = HomePage.objects.get(language="de")
         project_index_de = ProjectIndexPage(
             title="Projekte",
@@ -466,11 +434,6 @@ class Command(BaseCommand):
 
     def _setup_project_pages(self):
         """Creates the language specific project pages."""
-        HomePage = apps.get_model("cms.HomePage")
-        ProjectPage = apps.get_model("cms.ProjectPage")
-        ProjectIndexPage = apps.get_model("cms.ProjectIndexPage")
-        ContentType = apps.get_model("contenttypes.ContentType")
-
         home_page_de = HomePage.objects.get(language="de")
         home_page_en = HomePage.objects.get(language="en")
         project_index_page_de = ProjectIndexPage.objects.descendant_of(
@@ -480,9 +443,7 @@ class Command(BaseCommand):
             home_page_en
         ).first()
 
-        project_page_content_type = ContentType.objects.get(
-            model="projectpage", app_label="cms"
-        )
+        project_page_content_type = ContentType.objects.get_for_model(ProjectPage)
         folder_path = FIXTURES_DIR.joinpath("img")
 
         # create story.one project
@@ -662,12 +623,7 @@ class Command(BaseCommand):
 
     def _setup_team_member_index(self):
         """Creates the language specific team member index pages."""
-        HomePage = apps.get_model("cms.HomePage")
-        TeamMemberIndexPage = apps.get_model("cms.TeamMemberIndexPage")
-        ContentType = apps.get_model("contenttypes.ContentType")
-        team_member_index_page_content_type = ContentType.objects.get(
-            model="teammemberindexpage", app_label="cms"
-        )
+        team_member_index_page_content_type = ContentType.objects.get_for_model(TeamMemberIndexPage)
         home_page_de = HomePage.objects.get(language="de")
 
         intro_de = "Wir sind eine Software-Agentur mit Sitz in Wien. Unser Büro ist in Gehweite zum Naschmarkt zu finden. Mit einem starken Fokus auf Innovation unterstützen wir Unternehmen bei der Entwicklung und Verbesserung digitaler Produkte."
@@ -701,11 +657,6 @@ class Command(BaseCommand):
 
     def _setup_team_member_pages(self):
         """Creates the language specific team member pages."""
-        HomePage = apps.get_model("cms.HomePage")
-        TeamMemberPage = apps.get_model("cms.TeamMemberPage")
-        TeamMemberIndexPage = apps.get_model("cms.TeamMemberIndexPage")
-        ContentType = apps.get_model("contenttypes.ContentType")
-
         home_page_de = HomePage.objects.get(language="de")
         home_page_en = HomePage.objects.get(language="en")
         team_member_index_page_de = TeamMemberIndexPage.objects.descendant_of(
@@ -714,10 +665,7 @@ class Command(BaseCommand):
         team_member_index_page_en = TeamMemberIndexPage.objects.descendant_of(
             home_page_en
         ).first()
-
-        team_member_page_content_type = ContentType.objects.get(
-            model="teammemberpage", app_label="cms"
-        )
+        team_member_page_content_type = ContentType.objects.get_for_model(TeamMemberPage)
 
         about_de = "<p>Thomas ist Geschäftsführer von Codista. Er stellt sicher, dass unsere Kunden-Projekte in höchster Qualität und in der vereinbarten Zeit geliefert werden. Seine Arbeitszeit widmet er zu 70% der Software-Entwicklung und zu 30% dem Projektmanagement.</p>"
         team_member_tom_de = TeamMemberPage(
@@ -919,14 +867,6 @@ class Command(BaseCommand):
         TeamMemberPage.objects.all().update(live=False)
 
     def _create_main_menu(self):
-        from wagtailmenus.conf import settings as wagtailmenu_settings
-        from wagtail.core.models import Site
-
-        HomePage = apps.get_model("cms.HomePage")
-        ContactPage = apps.get_model("cms.ContactPage")
-        ServiceOverviewPage = apps.get_model("cms.ServiceOverviewPage")
-        ProjectIndexPage = apps.get_model("cms.ProjectIndexPage")
-        TeamMemberIndexPage = apps.get_model("cms.TeamMemberIndexPage")
         site = Site.objects.all()[0]
         menu_model = wagtailmenu_settings.models.FLAT_MENU_MODEL
 
@@ -1047,12 +987,6 @@ class Command(BaseCommand):
             item_manager.bulk_create(item_list)
 
     def _create_flat_menus(self):
-        from wagtailmenus.conf import settings as wagtailmenu_settings
-        from wagtail.core.models import Site
-
-        HomePage = apps.get_model("cms.HomePage")
-        PrivacyPolicyPage = apps.get_model("cms.PrivacyPolicyPage")
-        DefaultPage = apps.get_model("cms.DefaultPage")
         site = Site.objects.all()[0]
         menu_model = wagtailmenu_settings.models.FLAT_MENU_MODEL
 
@@ -1154,8 +1088,8 @@ class Command(BaseCommand):
             item_manager.bulk_create(item_list)
 
     def handle(self, raise_error=False, *args, **options):
-        # Root Page and a default homepage are created by wagtail migrations
-        # so check for > 2 here
+        # Root Page and a default homepage are created by wagtail migrations so check
+        # for > 2 here
         verbosity = options["verbosity"]
         checks = [Page.objects.all().count() > 2]
         if any(checks):
@@ -1166,4 +1100,3 @@ class Command(BaseCommand):
         if verbosity > 0:
             msg = "Page Tree successfully created."
             self.stdout.write(msg)
-
